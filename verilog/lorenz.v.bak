@@ -99,7 +99,7 @@ module lorenz_comb
 
 
     //Make xnext
-    wire signed[26:0] delt_yx;
+    signed wire [26:0] delt_yx;
     assign delt_yx = y_dt - x_dt; 
     
     signed_mult sigma_mult (
@@ -109,7 +109,7 @@ module lorenz_comb
     );
 
     //make ynext
-    wire signed [26:0] yx_mul;
+    signed wire [26:0] yx_mul;
 
     signed_mult xy_mult (
         .out(yx_mul), 
@@ -117,7 +117,7 @@ module lorenz_comb
         .b(xk)
     );
     
-    wire signed [26:0] zb_mul;
+    signed wire [26:0] zb_mul;
 
     signed_mult ab_mult (
         .out(zb_mul), 
@@ -127,11 +127,11 @@ module lorenz_comb
 
     assign z_comb = yx_mul - zb_mul;
 
-    wire signed [26:0] delt_zr;
+    signed wire [26:0] delt_zr;
 
     assign delt_zr = rho - zk;
 
-    wire signed [26:0] delt_zrx_mul;
+    signed wire [26:0] delt_zrx_mul;
 
     signed_mult drz_x_mult (
         .out(delt_zrx_mul), 

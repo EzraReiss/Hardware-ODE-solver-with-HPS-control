@@ -1,0 +1,115 @@
+m255
+K4
+z2
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+dC:/programs/intelFPGA/18.1
+vintegrator
+Z0 !s110 1769202517
+!i10b 1
+!s100 9@]I[]BZloaaQcmGW]6Oc3
+I?iRY?iCfET83Z1C`gnRe43
+Z1 VDg1SIo80bB@j0V0VzS_@n1
+Z2 dC:/Users/dt532/Hardware-ODE-solver-with-HPS-control
+Z3 w1769202509
+Z4 8C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/lorenz.v
+Z5 FC:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/lorenz.v
+L0 5
+Z6 OV;L;10.5b;63
+r1
+!s85 0
+31
+Z7 !s108 1769202517.000000
+Z8 !s107 C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/lorenz.v|
+Z9 !s90 -reportprogress|300|-work|work|-stats=none|C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/lorenz.v|
+!i113 1
+Z10 o-work work
+Z11 tCvgOpt 0
+vlorenz
+R0
+!i10b 1
+!s100 Mzg3]VcY5aXH^HT[M@15O2
+IM`dO>8:22oBll<Wzhk62L0
+R1
+R2
+R3
+R4
+R5
+L0 146
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 1
+R10
+R11
+vlorenz_comb
+R0
+!i10b 1
+!s100 EWFzB8K<EcJ;nYO>?MG[22
+I2:jK_Hk7VKBjdTT0P[8iD3
+R1
+R2
+R3
+R4
+R5
+L0 42
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 1
+R10
+R11
+vsigned_mult
+R0
+!i10b 1
+!s100 b3UMQQR?SA81URPai4:WY2
+ITiS3RmUKO^G?833;J]Y<P3
+R1
+R2
+R3
+R4
+R5
+L0 29
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 1
+R10
+R11
+vtestbench
+R0
+!i10b 1
+!s100 CSn_1ARWAn>E:[S>WeP>;3
+IZF<S3gdB7M@[o7=b<[;>B0
+R1
+R2
+w1769201936
+8C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/testbench.v
+FC:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/testbench.v
+L0 4
+R6
+r1
+!s85 0
+31
+R7
+!s107 C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/testbench.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/testbench.v|
+!i113 1
+R10
+R11

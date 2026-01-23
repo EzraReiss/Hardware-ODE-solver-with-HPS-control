@@ -1,0 +1,27 @@
+# Compile of testbench.v was successful.
+# Compile of lorenz.v failed with 6 errors.
+# 2 compiles, 1 failed with 6 errors.
+# Compile of testbench.v was successful.
+# Compile of lorenz.v was successful.
+# 2 compiles, 0 failed with no errors.
+vsim -gui work.testbench
+# vsim -gui work.testbench 
+# Start time: 16:09:06 on Jan 23,2026
+# Loading work.testbench
+# Loading work.lorenz
+# Loading work.lorenz_comb
+# Loading work.signed_mult
+# Loading work.integrator
+add wave -position insertpoint sim:/testbench/*
+run
+run
+run
+# ** Note: $stop    : C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/testbench.v(76)
+#    Time: 1000100 ns  Iteration: 0  Instance: /testbench
+# Break in Module testbench at C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/testbench.v line 76
+restart -f
+run
+# ** Note: $stop    : C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/testbench.v(76)
+#    Time: 1000100 ns  Iteration: 0  Instance: /testbench
+# Break in Module testbench at C:/Users/dt532/Hardware-ODE-solver-with-HPS-control/verilog/testbench.v line 76
+add wave -position insertpoint sim:/testbench/*
