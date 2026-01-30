@@ -100,7 +100,8 @@ int main(void)
 		*(axi_pio_ptr) = num ;
 		*(axi_pio_led_ptr) = num ;	
 		// receive back and print
-
+		pio_read = *(axi_pio_read_ptr);
+		printf("AXI PIO readback: %d\n", pio_read);
 	} // end while(1)
 } // end main
 
