@@ -34,10 +34,9 @@
 // PIO ports
 #define FPGA_AXI_BASE 	0xC0000000
 #define FPGA_AXI_SPAN   0x00001000
-#define FPGA_PIO        0xdeadbeef
-#define FPGA_PIO_X      0xdeadbeef
-#define FPGA_PIO_Y		0xdeadbeef
-#define FPGA_PIO_Z		0xdeadbeef
+#define FPGA_PIO_X      0x0400_0000
+#define FPGA_PIO_Y		0x0400_0010
+#define FPGA_PIO_Z		0x0400_0020
 
 
 // graphics primitives
@@ -75,10 +74,10 @@ int colors[] = {red, dark_red, green, dark_green, blue, dark_blue,
 
 // axi bus base
 void *h2p_virtual_base;
-volatile unsigned int * axi_pio_ptr = NULL ;
-volatile unsigned int * axi_pio_X_ptr = NULL ;
-volatile unsigned int * axi_pio_Y_ptr = NULL ;
-volatile unsigned int * axi_pio_Z_ptr = NULL ;
+volatile signed int * axi_pio_ptr = NULL ;
+volatile signed int * axi_pio_X_ptr = NULL ;
+volatile signed int * axi_pio_Y_ptr = NULL ;
+volatile signed int * axi_pio_Z_ptr = NULL ;
 
 
 // the light weight bus base
@@ -99,8 +98,8 @@ int fd;
 struct timeval t1, t2;
 double elapsedTime;
 
-// convert 20.7 fxp to float
-#define fixed_to_float(x) ((float)(x)/128.0)
+// convert 7.20 but in 32 bit with sign 5 0's then 7 decimal bits and 20 fractional
+#define fixed_to_int(x) (int)(x >>> 20)
 
 int main(void)
 {
@@ -206,9 +205,9 @@ int main(void)
 	while(1) 
 	{
 		// Get pixel values 
-		int x = fixed_to_float(*(axi_pio_X_ptr));
-		int y = fixed_to_float(*(axi_pio_Y_ptr));
-		int z = fixed_to_float(*(axi_pio_Z_ptr));
+		int x = fixed_to_int(*(axi_pio_X_ptr));
+		int y = fixed_to_int(*(axi_pio_Y_ptr));
+		int z = fixed_to_int(*(axi_pio_Z_ptr));
 
 		// Plot XY image in top left quadrant
 		VGA_PIXEL((int)(x*10)+320, (int)(240 - y*10), colors[1]);		
