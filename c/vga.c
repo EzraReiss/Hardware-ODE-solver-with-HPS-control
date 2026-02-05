@@ -103,8 +103,8 @@ int fd;
 struct timeval t1, t2;
 double elapsedTime;
 
-// convert 7.20 but in 32 bit with sign 5 0's then 7 decimal bits and 20 fractional
-#define fixed_to_int(x) ((int)x >> 20)
+// convert 7.20 but in 32 bit with sign 5 0's then 7 decimal bits and 20 fractional. Now its doing fixed to int * 4
+#define fixed_to_int(x) ((int)x >> 18)
 
 int main(void)
 {
@@ -234,14 +234,16 @@ int main(void)
 		printf("y: %d\n", *axi_pio_Y_ptr);
 		printf("z: %d\n", *axi_pio_Z_ptr);
 		printf("-----\n");
+		
+
 
 		// Calculate pixel coordinates
-		int xy_x = (int)(x+150);
+		int xy_x = (int)(x+100);
 		int xy_y = (int)(150 - y);
 		int xz_x = (int)(x+450);
-		int xz_y = (int)(150 - z);
-		int yz_x = (int)(y+150);
-		int yz_y = (int)(400 - z);
+		int xz_y = (int)(225 - z);
+		int yz_x = (int)(y+100);
+		int yz_y = (int)(450 - z);
 		// Plot XY image in top left quadrant (with bounds checking)
 		if (xy_x >= 0 && xy_x < 640 && xy_y >= 0 && xy_y < 480)
 			VGA_PIXEL(xy_x, xy_y, colors[1]);		
@@ -257,6 +259,10 @@ int main(void)
 		usleep(10);
 	} // end while(1)
 } // end main
+
+
+
+
 
 /****************************************************************************************
  * Subroutine to send a string of text to the VGA monitor 
