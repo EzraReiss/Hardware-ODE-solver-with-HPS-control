@@ -32,11 +32,13 @@
 #define HW_REGS_SPAN          0x00005000 
 
 // PIO ports
-#define FPGA_AXI_BASE 	0xC0000000
+#define FPGA_AXI_BASE 	0xC4000000
 #define FPGA_AXI_SPAN   0x00001000
-#define FPGA_PIO_X      0x0400_0000
-#define FPGA_PIO_Y		0x0400_0010
-#define FPGA_PIO_Z		0x0400_0020
+#define FPGA_PIO_X      0x00000000
+#define FPGA_PIO_Y		0x00000010
+#define FPGA_PIO_Z		0x00000020
+#define FPGA_PIO_RESET  0x00000030
+#define FPGA_PIO_CLK    0x00000040
 
 
 // graphics primitives
@@ -74,10 +76,13 @@ int colors[] = {red, dark_red, green, dark_green, blue, dark_blue,
 
 // axi bus base
 void *h2p_virtual_base;
-volatile signed int * axi_pio_ptr = NULL ;
 volatile signed int * axi_pio_X_ptr = NULL ;
 volatile signed int * axi_pio_Y_ptr = NULL ;
 volatile signed int * axi_pio_Z_ptr = NULL ;
+volatile unsigned int * axi_pio_clk_out_ptr = NULL   ;
+volatile unsigned int * axi_pio_reset_out_ptr = NULL ;
+
+
 
 
 // the light weight bus base
@@ -99,7 +104,7 @@ struct timeval t1, t2;
 double elapsedTime;
 
 // convert 7.20 but in 32 bit with sign 5 0's then 7 decimal bits and 20 fractional
-#define fixed_to_int(x) (int)(x >>> 20)
+#define fixed_to_int(x) ((int)x >> 20)
 
 int main(void)
 {
@@ -125,10 +130,12 @@ int main(void)
 	}
 
     // Get the addresses that map to the two parallel ports on the AXI bus
-	axi_pio_ptr =(unsigned int *)(h2p_virtual_base);
-	axi_pio_X_ptr =(unsigned int *)(h2p_virtual_base + FPGA_PIO_X);
-	axi_pio_Y_ptr =(unsigned int *)(h2p_virtual_base + FPGA_PIO_Y);
-	axi_pio_Z_ptr =(unsigned int *)(h2p_virtual_base + FPGA_PIO_Z);
+	axi_pio_X_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_X);
+	axi_pio_Y_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_Y);
+	axi_pio_Z_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_Z);
+	axi_pio_clk_out_ptr =(unsigned int *)(h2p_virtual_base + FPGA_PIO_CLK);
+	axi_pio_reset_out_ptr =(unsigned int *)(h2p_virtual_base + FPGA_PIO_RESET);
+
 
 
     // get virtual addr that maps to physical
@@ -201,23 +208,53 @@ int main(void)
 	// G bits 5-10  mask 0x07e0
 	// B bits 0-4   mask 0x001f
 	// so color = B+(G<<5)+(R<<11);
-	
+	* axi_pio_reset_out_ptr = 1;
+	* axi_pio_clk_out_ptr = 0;
+	usleep(10);
+	* axi_pio_clk_out_ptr = 1;
+	usleep(10);
+	* axi_pio_reset_out_ptr = 0;
+	usleep(10);
 	while(1) 
 	{
-		// Get pixel values 
+		* axi_pio_clk_out_ptr = 0;
+		usleep(10);
+		// Get pixel values
 		int x = fixed_to_int(*(axi_pio_X_ptr));
 		int y = fixed_to_int(*(axi_pio_Y_ptr));
 		int z = fixed_to_int(*(axi_pio_Z_ptr));
 
-		// Plot XY image in top left quadrant
-		VGA_PIXEL((int)(x*10)+320, (int)(240 - y*10), colors[1]);		
-		
-		// Plot XZ image in bottom left quadrant
-		VGA_PIXEL((int)(x*10)+320, (int)(240 + z*10), colors[3]);
+		printf("x: %d\n", x);
+		printf("y: %d\n", y);
+		printf("z: %d\n", z);
+		printf("-----\n");
 
-		// Plot YZ image in bottom right quadrant
-		VGA_PIXEL((int)(y*10)+320, (int)(240 + z*10), colors[5]);
+		printf("RAW FXP VALUES: \n");
+		printf("x: %d\n", *axi_pio_X_ptr);
+		printf("y: %d\n", *axi_pio_Y_ptr);
+		printf("z: %d\n", *axi_pio_Z_ptr);
+		printf("-----\n");
+
+		// Calculate pixel coordinates
+		int xy_x = (int)(x+150);
+		int xy_y = (int)(150 - y);
+		int xz_x = (int)(x+450);
+		int xz_y = (int)(150 - z);
+		int yz_x = (int)(y+150);
+		int yz_y = (int)(400 - z);
+		// Plot XY image in top left quadrant (with bounds checking)
+		if (xy_x >= 0 && xy_x < 640 && xy_y >= 0 && xy_y < 480)
+			VGA_PIXEL(xy_x, xy_y, colors[1]);		
 		
+		// Plot XZ image in bottom left quadrant (with bounds checking)
+		if (xz_x >= 0 && xz_x < 640 && xz_y >= 0 && xz_y < 480)
+			VGA_PIXEL(xz_x, xz_y, colors[3]);
+
+		// Plot YZ image in bottom right quadrant (with bounds checking)
+		if (yz_x >= 0 && yz_x < 640 && yz_y >= 0 && yz_y < 480)
+			VGA_PIXEL(yz_x, yz_y, colors[5]);
+		* axi_pio_clk_out_ptr = 1;
+		usleep(10);
 	} // end while(1)
 } // end main
 
