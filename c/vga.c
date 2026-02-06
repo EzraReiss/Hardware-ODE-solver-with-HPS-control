@@ -131,7 +131,13 @@ double elapsedTime;
 // convert float to 7.20 fixed point with 5 padded 0's for the LSB so its 32 bit
 #define float_to_fixed(x) ((signed int)(x * 1048576.0f)) << 5
 
-bool running = true;
+volatile bool running = true;
+volatile float x_init = -1.0;
+volatile float y_init = 0.1;
+volatile float z_init = 25.0;
+volatile float sig = 10.0;
+volatile float beta = 2.6667;
+volatile float rho = 28.0;
 
 int main(void)
 {
@@ -249,15 +255,28 @@ int main(void)
 	usleep(10);
 	* axi_pio_reset_out_ptr = 0;
 	usleep(10);
-	while(1) 
-	{
-		pthread_t console_thread, frame_thread;
-		pthread_create(&frame_thread, NULL, frame_update, NULL);
-		pthread_create(&console_thread, NULL, console_input, NULL);
 
-		pthread_join(frame_thread, NULL);
-		pthread_join(console_thread, NULL);
-	} // end while(1)
+	*axi_pio_sigma_ptr = float_to_fixed(sig);
+	*axi_pio_beta_ptr = float_to_fixed(beta);
+	*axi_pio_rho_ptr = float_to_fixed(rho);
+	*axi_pio_x_init_ptr = float_to_fixed(x_init);
+	*axi_pio_y_init_ptr = float_to_fixed(y_init);
+	*axi_pio_z_init_ptr = float_to_fixed(z_init);
+	* axi_pio_reset_out_ptr = 1;
+	* axi_pio_clk_out_ptr = 0;
+	usleep(10);
+	* axi_pio_clk_out_ptr = 1;
+	usleep(10);
+	* axi_pio_reset_out_ptr = 0;
+
+	
+
+	running = true;
+	pthread_t console_thread, frame_thread;
+	pthread_create(&frame_thread, NULL, frame_update, NULL);
+	pthread_create(&console_thread, NULL, console_input, NULL);
+	pthread_join(frame_thread, NULL);
+	pthread_join(console_thread, NULL);
 } // end main
 
 //
@@ -267,50 +286,56 @@ int main(void)
 float speed = 1; 
 
 void* frame_update(void* arg) {
-	while(running) 
-	{
-		* axi_pio_clk_out_ptr = 0;
-		usleep(10 * 1/speed);
-		// Get pixel values
-		int x = fixed_to_int(*(axi_pio_X_ptr));
-		int y = fixed_to_int(*(axi_pio_Y_ptr));
-		int z = fixed_to_int(*(axi_pio_Z_ptr));
-		
-		// DEBUG PRINTING -------------------------
-		printf("x: %d\n", x);
-		printf("y: %d\n", y);
-		printf("z: %d\n", z);
-		printf("-----\n");
+	while(true) {
+		if (running) 
+		{
+			* axi_pio_clk_out_ptr = 0;
+			usleep(10/speed);
+			// Get pixel values
+			int x = fixed_to_int(*(axi_pio_X_ptr));
+			int y = fixed_to_int(*(axi_pio_Y_ptr));
+			int z = fixed_to_int(*(axi_pio_Z_ptr));
 
-		printf("RAW FXP VALUES: \n");
-		printf("x: %d\n", *axi_pio_X_ptr);
-		printf("y: %d\n", *axi_pio_Y_ptr);
-		printf("z: %d\n", *axi_pio_Z_ptr);
-		printf("-----\n");
-		// ---------------------------------------
+			printf("%d, %d, %d\n", x, y, z);
+			
+			// DEBUG PRINTING -------------------------
+			// printf("x: %d\n", x);
+			// printf("y: %d\n", y);
+			// printf("z: %d\n", z);
+			// printf("-----\n");
 
-				// Calculate pixel coordinates
-		int xy_x = (int)(x+100);
-		int xy_y = (int)(150 - y);
-		int xz_x = (int)(x+450);
-		int xz_y = (int)(225 - z);
-		int yz_x = (int)(y+100);
-		int yz_y = (int)(450 - z);
-		// Plot XY image in top left quadrant (with bounds checking)
-		if (xy_x >= 0 && xy_x < 640 && xy_y >= 0 && xy_y < 480)
-			VGA_PIXEL(xy_x, xy_y, colors[1]);		
-		
-		// Plot XZ image in bottom left quadrant (with bounds checking)
-		if (xz_x >= 0 && xz_x < 640 && xz_y >= 0 && xz_y < 480)
-			VGA_PIXEL(xz_x, xz_y, colors[3]);
+			// printf("RAW FXP VALUES: \n");
+			// printf("x: %d\n", *axi_pio_X_ptr);
+			// printf("y: %d\n", *axi_pio_Y_ptr);
+			// printf("z: %d\n", *axi_pio_Z_ptr);
+			// printf("-----\n");
+			// ---------------------------------------
 
-		// Plot YZ image in bottom right quadrant (with bounds checking)
-		if (yz_x >= 0 && yz_x < 640 && yz_y >= 0 && yz_y < 480)
-			VGA_PIXEL(yz_x, yz_y, colors[5]);
-		* axi_pio_clk_out_ptr = 1;
-		usleep(10 * 1/speed);
+					// Calculate pixel coordinates
+			int xy_x = (int)(x+100);
+			int xy_y = (int)(150 - y);
+			int xz_x = (int)(x+450);
+			int xz_y = (int)(225 - z);
+			int yz_x = (int)(y+100);
+			int yz_y = (int)(450 - z);
+			// Plot XY image in top left quadrant (with bounds checking)
+			if (xy_x >= 0 && xy_x < 640 && xy_y >= 0 && xy_y < 480)
+				VGA_PIXEL(xy_x, xy_y, colors[1]);		
+			
+			// Plot XZ image in bottom left quadrant (with bounds checking)
+			if (xz_x >= 0 && xz_x < 640 && xz_y >= 0 && xz_y < 480)
+				VGA_PIXEL(xz_x, xz_y, colors[3]);
 
-	} 
+			// Plot YZ image in bottom right quadrant (with bounds checking)
+			if (yz_x >= 0 && yz_x < 640 && yz_y >= 0 && yz_y < 480)
+				VGA_PIXEL(yz_x, yz_y, colors[5]);
+			* axi_pio_clk_out_ptr = 1;
+
+			
+			usleep(10/speed);
+
+		} 
+}
 	return NULL;
 }
 
@@ -318,14 +343,9 @@ void* frame_update(void* arg) {
 // pthread function to read the console to control speed, init conditions, params
 //
 void* console_input(void* arg) {
+
 	char input[20];
-	float x_init = 0.0;
-	float y_init = 0.0;
-	float z_init = 0.0;
-	float sig = 0.0;
-	float beta = 0.0;
-	float rho = 0.0;
-	while(running) {
+	while(1) {
 		printf("Commands:\n");
 		printf(" p - play / pause\n");
 		printf(" s - increase speed\n");
@@ -362,21 +382,25 @@ void* console_input(void* arg) {
 				break;
 			// get value for sigma
 			case 'g':
-				sig  = scanf("%f", &sig);
-				*axi_pio_sigma_ptr = float_to_fixed(sig);
+				if (scanf("%f", &sig) == 1) {
+					*axi_pio_sigma_ptr = float_to_fixed(sig);
+				}
 				break;
 			
 			// get value for beta
 			case 'b':
-				beta  = scanf("%f", &beta);
-				*axi_pio_beta_ptr = float_to_fixed(beta);
+				if (scanf("%f", &beta) == 1) {
+					*axi_pio_beta_ptr = float_to_fixed(beta);
+				}
 				break;
 			
 			// get value for rho
 			case 'r':
-				rho  = scanf("%f", &rho);
-				*axi_pio_rho_ptr = float_to_fixed(rho);
+				if (scanf("%f", &rho) == 1) {
+					*axi_pio_rho_ptr = float_to_fixed(rho);
+				}
 				break;
+
 			
 			// get initial conditions and reset the system
 			case 'i':
@@ -386,15 +410,41 @@ void* console_input(void* arg) {
 				*axi_pio_x_init_ptr = float_to_fixed(x_init);
 				*axi_pio_y_init_ptr = float_to_fixed(y_init);
 				*axi_pio_z_init_ptr = float_to_fixed(z_init);
-				*axi_pio_reset_out_ptr = 1;
+				* axi_pio_reset_out_ptr = 1;
+				* axi_pio_clk_out_ptr = 0;
+				usleep(10);
+				* axi_pio_clk_out_ptr = 1;
+				usleep(10);
+				* axi_pio_reset_out_ptr = 0;
+				usleep(10);
+
 				running = true;
 				break;
 			
-			
+			case '\n':
+				break;
 			// add more cases for different commands
 			default:
 				printf("Unknown command\n");
 		}
+
+		// write sigma, beta, rho values to the bottom right corner of the vga
+		//also print initial conditions as well if we are paused or not on VGA
+		char fixed_string[256];
+		sprintf(fixed_string, "sigma: %f beta: %f rho: %f x: %f y: %f z: %f", sig, beta, rho, x_init, y_init, z_init);
+		
+
+		
+		// print initial conditions to console
+		VGA_text_clear();
+		VGA_text(0, 57, fixed_string);
+
+		// label the XY projection
+		VGA_text(10, 4, "XY Projection");
+		// label the XZ projection
+		VGA_text(56, 4, "XZ Projection");
+		// label the YZ projection
+		VGA_text(10, 30, "YZ Projection");
 	}
 
 	return NULL;
