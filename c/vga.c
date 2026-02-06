@@ -6,6 +6,7 @@
 /// gcc graphics_video_16bit.c -o gr -O2 -lm
 ///
 ///////////////////////////////////////
+#include <bits/pthreadtypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -16,6 +17,8 @@
 #include <sys/mman.h>
 #include <sys/time.h> 
 #include <math.h>
+#include <pthread.h>
+#include <stdbool.h>
 //#include "address_map_arm_brl4.h"
 
 // video display
@@ -39,6 +42,12 @@
 #define FPGA_PIO_Z		0x00000020
 #define FPGA_PIO_RESET  0x00000030
 #define FPGA_PIO_CLK    0x00000040
+#define FPGA_PIO_X_INIT 0x00000050
+#define FPGA_PIO_Y_INIT 0x00000060
+#define FPGA_PIO_Z_INIT 0x00000070
+#define FPGA_PIO_SIGMA  0x00000080
+#define FPGA_PIO_BETA   0x00000090
+#define FPGA_PIO_RHO    0x000000A0
 
 
 // graphics primitives
@@ -51,6 +60,12 @@ void VGA_Vline(int, int, int, short) ;
 void VGA_Hline(int, int, int, short) ;
 void VGA_disc (int, int, int, short);
 void VGA_circle (int, int, int, int);
+
+
+// threads 
+void* frame_update(void* arg);
+void* console_input(void* arg);
+
 // 16-bit primary colors
 #define red  (0+(0<<5)+(31<<11))
 #define dark_red (0+(0<<5)+(15<<11))
@@ -81,6 +96,12 @@ volatile signed int * axi_pio_Y_ptr = NULL ;
 volatile signed int * axi_pio_Z_ptr = NULL ;
 volatile unsigned int * axi_pio_clk_out_ptr = NULL   ;
 volatile unsigned int * axi_pio_reset_out_ptr = NULL ;
+volatile signed int * axi_pio_x_init_ptr = NULL ;
+volatile signed int * axi_pio_y_init_ptr = NULL ;
+volatile signed int * axi_pio_z_init_ptr = NULL ;
+volatile signed int * axi_pio_sigma_ptr = NULL ;
+volatile signed int * axi_pio_beta_ptr = NULL ;
+volatile signed int * axi_pio_rho_ptr = NULL  ;
 
 
 
@@ -105,6 +126,12 @@ double elapsedTime;
 
 // convert 7.20 but in 32 bit with sign 5 0's then 7 decimal bits and 20 fractional. Now its doing fixed to int * 4
 #define fixed_to_int(x) ((int)x >> 18)
+
+
+// convert float to 7.20 fixed point with 5 padded 0's for the LSB so its 32 bit
+#define float_to_fixed(x) ((signed int)(x * 1048576.0f)) << 5
+
+bool running = true;
 
 int main(void)
 {
@@ -135,6 +162,13 @@ int main(void)
 	axi_pio_Z_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_Z);
 	axi_pio_clk_out_ptr =(unsigned int *)(h2p_virtual_base + FPGA_PIO_CLK);
 	axi_pio_reset_out_ptr =(unsigned int *)(h2p_virtual_base + FPGA_PIO_RESET);
+
+	axi_pio_x_init_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_X_INIT);
+	axi_pio_y_init_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_Y_INIT);
+	axi_pio_z_init_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_Z_INIT);
+	axi_pio_sigma_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_SIGMA);
+	axi_pio_beta_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_BETA);
+	axi_pio_rho_ptr =(signed int *)(h2p_virtual_base + FPGA_PIO_RHO);
 
 
 
@@ -217,13 +251,32 @@ int main(void)
 	usleep(10);
 	while(1) 
 	{
+		pthread_t console_thread, frame_thread;
+		pthread_create(&frame_thread, NULL, frame_update, NULL);
+		pthread_create(&console_thread, NULL, console_input, NULL);
+
+		pthread_join(frame_thread, NULL);
+		pthread_join(console_thread, NULL);
+	} // end while(1)
+} // end main
+
+//
+// pthread function to read from the PIO and plot on the VGA
+//
+
+float speed = 1; 
+
+void* frame_update(void* arg) {
+	while(running) 
+	{
 		* axi_pio_clk_out_ptr = 0;
-		usleep(10);
+		usleep(10 * 1/speed);
 		// Get pixel values
 		int x = fixed_to_int(*(axi_pio_X_ptr));
 		int y = fixed_to_int(*(axi_pio_Y_ptr));
 		int z = fixed_to_int(*(axi_pio_Z_ptr));
-
+		
+		// DEBUG PRINTING -------------------------
 		printf("x: %d\n", x);
 		printf("y: %d\n", y);
 		printf("z: %d\n", z);
@@ -234,10 +287,9 @@ int main(void)
 		printf("y: %d\n", *axi_pio_Y_ptr);
 		printf("z: %d\n", *axi_pio_Z_ptr);
 		printf("-----\n");
-		
+		// ---------------------------------------
 
-
-		// Calculate pixel coordinates
+				// Calculate pixel coordinates
 		int xy_x = (int)(x+100);
 		int xy_y = (int)(150 - y);
 		int xz_x = (int)(x+450);
@@ -256,11 +308,97 @@ int main(void)
 		if (yz_x >= 0 && yz_x < 640 && yz_y >= 0 && yz_y < 480)
 			VGA_PIXEL(yz_x, yz_y, colors[5]);
 		* axi_pio_clk_out_ptr = 1;
-		usleep(10);
-	} // end while(1)
-} // end main
+		usleep(10 * 1/speed);
 
+	} 
+	return NULL;
+}
 
+//
+// pthread function to read the console to control speed, init conditions, params
+//
+void* console_input(void* arg) {
+	char input[20];
+	float x_init = 0.0;
+	float y_init = 0.0;
+	float z_init = 0.0;
+	float sig = 0.0;
+	float beta = 0.0;
+	float rho = 0.0;
+	while(running) {
+		printf("Commands:\n");
+		printf(" p - play / pause\n");
+		printf(" s - increase speed\n");
+		printf(" l - decrease speed\n");
+		printf(" c - clear screen\n");
+		printf(" g - set sigma\n");
+		printf(" b - set beta\n");
+		printf(" r - set rho\n");
+		printf(" i - set initial conditions\n");
+		printf("Enter command: ");
+		// get one character input
+		fgets(input, 20, stdin);
+		switch(input[0]) {
+
+			// play / pause button
+			case 'p':
+				running = !running;
+				break;
+
+			// increase speed 
+			case 's':
+				speed *= 2;
+				break;
+
+			 // decrease speed
+			case 'l':
+			 	speed /= 2;
+				break;
+			
+			// clear screen
+			case 'c':
+				VGA_box (0, 0, 639, 479, 0x0000);
+				VGA_text_clear();
+				break;
+			// get value for sigma
+			case 'g':
+				sig  = scanf("%f", &sig);
+				*axi_pio_sigma_ptr = float_to_fixed(sig);
+				break;
+			
+			// get value for beta
+			case 'b':
+				beta  = scanf("%f", &beta);
+				*axi_pio_beta_ptr = float_to_fixed(beta);
+				break;
+			
+			// get value for rho
+			case 'r':
+				rho  = scanf("%f", &rho);
+				*axi_pio_rho_ptr = float_to_fixed(rho);
+				break;
+			
+			// get initial conditions and reset the system
+			case 'i':
+				printf("Enter initial x, y, z: ");
+				running = false;
+				scanf("%f %f %f", &x_init, &y_init, &z_init);
+				*axi_pio_x_init_ptr = float_to_fixed(x_init);
+				*axi_pio_y_init_ptr = float_to_fixed(y_init);
+				*axi_pio_z_init_ptr = float_to_fixed(z_init);
+				*axi_pio_reset_out_ptr = 1;
+				running = true;
+				break;
+			
+			
+			// add more cases for different commands
+			default:
+				printf("Unknown command\n");
+		}
+	}
+
+	return NULL;
+}
 
 
 
